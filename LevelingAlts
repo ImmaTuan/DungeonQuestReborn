@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
 local player = Players.LocalPlayer
 
 -- Cấu hình Remote Events
@@ -15,7 +16,7 @@ local sendJoinRequestEvent = remotes:FindFirstChild("sendJoinRequest")
 local buyGamepassEvent = remotes:FindFirstChild("requestGoldGamepassPurchase")
 
 local targetHasBeenSeen = false
-local missingTargetTimer = 0 -- Biến đếm thời gian mất dạng host
+local missingTargetTimer = 0
 
 local purchaseQueue = {
     "goldGamepass",
@@ -24,7 +25,7 @@ local purchaseQueue = {
     "freeStatResets"
 }
 
--- 0. Chức năng Boost FPS & Black Screen
+-- 0. Tối ưu hóa FPS & Màn hình đen
 local function applyOptimizations()
     if getgenv().Config.BoostFPS then
         pcall(function()
@@ -85,6 +86,19 @@ local function applyOptimizations()
     end
 end
 
+-- Chức năng Anti-AFK (mô phỏng thao tác nhảy của nhân vật)
+local function triggerAntiAFK()
+    if not getgenv().Config.AntiAFK then return end
+
+    pcall(function()
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Jump = true
+        end
+    end)
+end
+
 -- 1. Auto Sell
 local function autoSellAll()
     if not getgenv().Config.AutoSellEnabled then return end
@@ -141,25 +155,21 @@ local function triggerJoin()
     end
 end
 
--- 4. Check Leave / Hoặc không thấy host trong vòng 30s để về Lobby
+-- 4. Check Leave hoặc mất host trong 30s để về Lobby
 local function checkTargetPlayerLeave()
     local targetPlayer = Players:FindFirstChild(TARGET_USERNAME)
 
     if targetPlayer then
-        -- Nếu tìm thấy host trở lại hoặc xuất hiện lần đầu
         if not targetHasBeenSeen then
             targetHasBeenSeen = true
             print("Đã phát hiện " .. TARGET_USERNAME .. " xuất hiện trong game!")
         end
-        -- Reset lại bộ đếm vì host đang có mặt
         missingTargetTimer = 0
     else
-        -- Nếu host đã từng xuất hiện ít nhất 1 lần, nhưng bây giờ biến mất
         if targetHasBeenSeen then
             missingTargetTimer = missingTargetTimer + 1
             print("Không thấy host " .. TARGET_USERNAME .. "! Đang đếm ngược: " .. missingTargetTimer .. "/30s")
 
-            -- Nếu quá 30 giây liên tục không thấy host
             if missingTargetTimer >= 30 then
                 print("Đã quá 30 giây không thấy host! Tiến hành về Lobby...")
                 
@@ -176,17 +186,33 @@ local function checkTargetPlayerLeave()
     end
 end
 
--- Áp dụng cấu hình tối ưu lúc khởi động
+-- Xử lý chống treo game cấp độ hệ thống (chặn Idle Kick của Roblox)
+player.Idled:Connect(function()
+    if getgenv().Config.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton1(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end
+end)
+
+-- Áp dụng tối ưu hóa khi khởi chạy
 applyOptimizations()
 
--- 5. Vòng lặp tổng hợp (chạy mỗi 1 giây)
+-- 5. Vòng lặp tổng hợp chính (chạy mỗi 1 giây)
 task.spawn(function()
     local sellTimer = 0
     local buyTimer = 0
+    local afkTimer = 0
     
     while true do
         checkTargetPlayerLeave()
         task.spawn(triggerJoin)
+
+        -- Kích hoạt nhảy chống AFK mỗi 30 giây
+        afkTimer = afkTimer + 1
+        if afkTimer >= 30 then
+            afkTimer = 0
+            triggerAntiAFK()
+        end
 
         buyTimer = buyTimer + 1
         if buyTimer >= 2 then
