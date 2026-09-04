@@ -25,10 +25,10 @@ local purchaseQueue = {
     "freeStatResets"
 }
 
--- Biến lưu trữ TextLabel để cập nhật Level và Gold liên tục trên màn hình đen
+-- Biến lưu trữ TextLabel để cập nhật thông tin lên màn hình đen
 local blackScreenTextLabel = nil
 
--- 0. Tối ưu hóa FPS & Màn hình đen (có hiển thị Level và Gold)
+-- 0. Tối ưu hóa FPS & Màn hình đen
 local function applyOptimizations()
     if getgenv().Config.BoostFPS then
         pcall(function()
@@ -67,8 +67,8 @@ local function applyOptimizations()
                 frame.Parent = screenGui
 
                 blackScreenTextLabel = Instance.new("TextLabel")
-                blackScreenTextLabel.Size = UDim2.new(1, 0, 0, 100)
-                blackScreenTextLabel.Position = UDim2.new(0, 0, 0.5, -50)
+                blackScreenTextLabel.Size = UDim2.new(1, 0, 0, 150)
+                blackScreenTextLabel.Position = UDim2.new(0, 0, 0.5, -75)
                 blackScreenTextLabel.BackgroundTransparency = 1
                 blackScreenTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                 blackScreenTextLabel.TextScaled = true
@@ -90,11 +90,14 @@ local function applyOptimizations()
     end
 end
 
--- Cập nhật thông tin Level và Gold lên màn hình đen dựa theo leaderstats
+-- Cập nhật thông tin chi tiết lên màn hình đen (Username, Level, Gold, Tên Map Dungeon)
 local function updateBlackScreenStats()
     if not getgenv().Config.BlackScreen or not blackScreenTextLabel then return end
 
     pcall(function()
+        local username = player.Name
+        
+        -- Lấy Level và Gold từ leaderstats
         local leaderstats = player:FindFirstChild("leaderstats")
         local levelVal = leaderstats and leaderstats:FindFirstChild("Level")
         local goldVal = leaderstats and leaderstats:FindFirstChild("Gold")
@@ -102,7 +105,17 @@ local function updateBlackScreenStats()
         local currentLevel = levelVal and levelVal.Value or "N/A"
         local currentGold = goldVal and goldVal.Value or "N/A"
 
-        blackScreenTextLabel.Text = string.format("TREO GAME - Level: %s | Gold: %s", tostring(currentLevel), tostring(currentGold))
+        -- Lấy tên map từ dungeonName trong Workspace
+        local dungeonNameVal = Workspace:FindFirstChild("dungeonName")
+        local currentMap = dungeonNameVal and dungeonNameVal.Value or "Lobby / Chưa vào Map"
+
+        blackScreenTextLabel.Text = string.format(
+            "Account: %s\nLevel: %s | Gold: %s\nMap: %s", 
+            tostring(username), 
+            tostring(currentLevel), 
+            tostring(currentGold), 
+            tostring(currentMap)
+        )
     end)
 end
 
@@ -226,7 +239,7 @@ task.spawn(function()
     while true do
         checkTargetPlayerLeave()
         task.spawn(triggerJoin)
-        updateBlackScreenStats() -- Cập nhật Level và Gold liên tục mỗi giây
+        updateBlackScreenStats() -- Cập nhật thông tin Username, Level, Gold, Map liên tục mỗi giây
 
         -- Kích hoạt nhảy chống AFK mỗi 30 giây
         afkTimer = afkTimer + 1
