@@ -1,0 +1,128 @@
+TARGET_USERNAME = getgenv().TargetUser or TARGET_USERNAME
+end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Cấu hình Remote Events
+local remotes = ReplicatedStorage:WaitForChild("remotes")
+local sellItemEvent = remotes:WaitForChild("sellItemEvent")
+local returnToLobbyEvent = remotes:FindFirstChild("ReturnToLobbyEvent")
+local joinDungeonEvent = remotes:FindFirstChild("joinDungeon")
+local sendJoinRequestEvent = remotes:FindFirstChild("sendJoinRequest")
+local buyGamepassEvent = remotes:FindFirstChild("requestGoldGamepassPurchase")
+
+local targetHasBeenSeen = false
+
+local purchaseQueue = {
+    "goldGamepass",
+    "extraItemGamepass",
+    "vip",
+    "freeStatResets"
+}
+
+-- 1. Auto Sell (quét từ 1 đến 100)
+local function autoSellAll()
+    local itemsToSell = {
+        helmet = {},
+        ability = {},
+        chest = {},
+        weapon = {}
+    }
+
+    for i = 1, 100 do
+        table.insert(itemsToSell.helmet, i)
+        table.insert(itemsToSell.ability, i)
+        table.insert(itemsToSell.chest, i)
+        table.insert(itemsToSell.weapon, i)
+    end
+
+    pcall(function()
+        sellItemEvent:FireServer(itemsToSell)
+    end)
+end
+
+-- 2. Tự động mua gamepass theo thứ tự
+local function checkAndBuyGamepasses()
+    if not buyGamepassEvent then return end
+
+    for _, passName in ipairs(purchaseQueue) do
+        local valueObj = player:FindFirstChild(passName)
+        
+        if valueObj and valueObj:IsA("BoolValue") and valueObj.Value == false then
+            pcall(function()
+                buyGamepassEvent:FireServer(passName)
+            end)
+            break 
+        end
+    end
+end
+
+-- 3. Join Dungeon & Request
+local function triggerJoin()
+    if TARGET_USERNAME and TARGET_USERNAME ~= "" then
+        pcall(function()
+            if joinDungeonEvent then
+                joinDungeonEvent:InvokeServer(TARGET_USERNAME)
+            end
+        end)
+
+        pcall(function()
+            if sendJoinRequestEvent then
+                sendJoinRequestEvent:InvokeServer(TARGET_USERNAME)
+            end
+        end)
+    end
+end
+
+-- 4. Check Leave để về Lobby
+local function checkTargetPlayerLeave()
+    local targetPlayer = Players:FindFirstChild(TARGET_USERNAME)
+
+    if targetPlayer then
+        if not targetHasBeenSeen then
+            targetHasBeenSeen = true
+            print("Đã phát hiện " .. TARGET_USERNAME .. " xuất hiện trong game!")
+        end
+    else
+        if targetHasBeenSeen then
+            print(TARGET_USERNAME .. " đã rời đi! Đang tiến hành về Lobby...")
+            
+            if returnToLobbyEvent then
+                pcall(function()
+                    returnToLobbyEvent:FireServer()
+                end)
+            end
+            
+            targetHasBeenSeen = false 
+        end
+    end
+end
+
+-- 5. Vòng lặp tổng hợp
+task.spawn(function()
+    local sellTimer = 0
+    local buyTimer = 0
+    
+    while true do
+        checkTargetPlayerLeave()
+        task.spawn(triggerJoin)
+
+        buyTimer = buyTimer + 1
+        if buyTimer >= 2 then
+            buyTimer = 0
+            checkAndBuyGamepasses()
+        end
+
+        sellTimer = sellTimer + 1
+        if sellTimer >= 3 then
+            sellTimer = 0
+            autoSellAll()
+        end
+
+        task.wait(1)
+    end
+end)
+
+print("Đã khởi chạy script thành công với mục tiêu: " .. TARGET_USERNAME)
