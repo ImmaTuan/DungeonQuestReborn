@@ -25,7 +25,10 @@ local purchaseQueue = {
     "freeStatResets"
 }
 
--- 0. Tối ưu hóa FPS & Màn hình đen
+-- Biến lưu trữ TextLabel để cập nhật Level và Gold liên tục trên màn hình đen
+local blackScreenTextLabel = nil
+
+-- 0. Tối ưu hóa FPS & Màn hình đen (có hiển thị Level và Gold)
 local function applyOptimizations()
     if getgenv().Config.BoostFPS then
         pcall(function()
@@ -63,15 +66,15 @@ local function applyOptimizations()
                 frame.BorderSizePixel = 0
                 frame.Parent = screenGui
 
-                local textLabel = Instance.new("TextLabel")
-                textLabel.Size = UDim2.new(1, 0, 0, 50)
-                textLabel.Position = UDim2.new(0, 0, 0.5, -25)
-                textLabel.BackgroundTransparency = 1
-                textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                textLabel.TextScaled = true
-                textLabel.Font = Enum.Font.SourceSansBold
-                textLabel.Text = "TREO GAME ĐANG BẬT - TỐI ƯU HÓA HOẠT ĐỘNG"
-                textLabel.Parent = frame
+                blackScreenTextLabel = Instance.new("TextLabel")
+                blackScreenTextLabel.Size = UDim2.new(1, 0, 0, 100)
+                blackScreenTextLabel.Position = UDim2.new(0, 0, 0.5, -50)
+                blackScreenTextLabel.BackgroundTransparency = 1
+                blackScreenTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                blackScreenTextLabel.TextScaled = true
+                blackScreenTextLabel.Font = Enum.Font.SourceSansBold
+                blackScreenTextLabel.Text = "Đang tải thông tin..."
+                blackScreenTextLabel.Parent = frame
 
                 screenGui.Parent = playerGui
             end
@@ -81,12 +84,29 @@ local function applyOptimizations()
             local playerGui = player:FindFirstChild("PlayerGui")
             if playerGui and playerGui:FindFirstChild("TreoBlackScreenGui") then
                 playerGui.TreoBlackScreenGui:Destroy()
+                blackScreenTextLabel = nil
             end
         end)
     end
 end
 
--- Chức năng Anti-AFK (mô phỏng thao tác nhảy của nhân vật)
+-- Cập nhật thông tin Level và Gold lên màn hình đen dựa theo leaderstats
+local function updateBlackScreenStats()
+    if not getgenv().Config.BlackScreen or not blackScreenTextLabel then return end
+
+    pcall(function()
+        local leaderstats = player:FindFirstChild("leaderstats")
+        local levelVal = leaderstats and leaderstats:FindFirstChild("Level")
+        local goldVal = leaderstats and leaderstats:FindFirstChild("Gold")
+
+        local currentLevel = levelVal and levelVal.Value or "N/A"
+        local currentGold = goldVal and goldVal.Value or "N/A"
+
+        blackScreenTextLabel.Text = string.format("TREO GAME - Level: %s | Gold: %s", tostring(currentLevel), tostring(currentGold))
+    end)
+end
+
+-- Chức năng Anti-AFK (mô phỏng thao tác nhảy)
 local function triggerAntiAFK()
     if not getgenv().Config.AntiAFK then return end
 
@@ -186,7 +206,7 @@ local function checkTargetPlayerLeave()
     end
 end
 
--- Xử lý chống treo game cấp độ hệ thống (chặn Idle Kick của Roblox)
+-- Chống Idle Kick hệ thống
 player.Idled:Connect(function()
     if getgenv().Config.AntiAFK then
         VirtualUser:CaptureController()
@@ -206,6 +226,7 @@ task.spawn(function()
     while true do
         checkTargetPlayerLeave()
         task.spawn(triggerJoin)
+        updateBlackScreenStats() -- Cập nhật Level và Gold liên tục mỗi giây
 
         -- Kích hoạt nhảy chống AFK mỗi 30 giây
         afkTimer = afkTimer + 1
