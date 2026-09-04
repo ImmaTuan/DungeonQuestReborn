@@ -1,3 +1,4 @@
+if getgenv then
 TARGET_USERNAME = getgenv().TargetUser or TARGET_USERNAME
 end
 
