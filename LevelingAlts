@@ -1,9 +1,9 @@
-if getgenv then
-TARGET_USERNAME = getgenv().TargetUser or TARGET_USERNAME
-end
+local TARGET_USERNAME = getgenv().Config.TargetUser
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
 -- Cấu hình Remote Events
@@ -23,8 +23,74 @@ local purchaseQueue = {
     "freeStatResets"
 }
 
--- 1. Auto Sell (quét từ 1 đến 100)
+-- 0. Chức năng Boost FPS & Black Screen
+local function applyOptimizations()
+    -- Xử lý Boost FPS (Xóa bớt hiệu ứng, particle, vật thể nặng)
+    if getgenv().Config.BoostFPS then
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+            for _, v in ipairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+                    v.Enabled = false
+                end
+            end
+            for _, v in ipairs(Workspace:GetDescendants()) do
+                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+                    v.Enabled = false
+                elseif v:IsA("BasePart") then
+                    v.Material = Enum.Material.SmoothPlastic
+                    v.Reflectance = 0
+                end
+            end
+        end)
+    end
+
+    -- Xử lý Black Screen (Tạo khung đen che màn hình game để giảm tải render khi treo máy)
+    if getgenv().Config.BlackScreen then
+        pcall(function()
+            local playerGui = player:FindFirstChild("PlayerGui")
+            if playerGui and not playerGui:FindFirstChild("TreoBlackScreenGui") then
+                local screenGui = Instance.new("ScreenGui")
+                screenGui.Name = "TreoBlackScreenGui"
+                screenGui.IgnoreGuiInset = true
+                screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+                screenGui.DisplayOrder = 999999
+
+                local frame = Instance.new("Frame")
+                frame.Size = UDim2.new(1, 0, 1, 0)
+                frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                frame.BorderSizePixel = 0
+                frame.Parent = screenGui
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Size = UDim2.new(1, 0, 0, 50)
+                textLabel.Position = UDim2.new(0, 0, 0.5, -25)
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                textLabel.TextScaled = true
+                textLabel.Font = Enum.Font.SourceSansBold
+                textLabel.Text = "TREO GAME ĐANG BẬT - TỐI ƯU HÓA HOẠT ĐỘNG"
+                textLabel.Parent = frame
+
+                screenGui.Parent = playerGui
+            end
+        end)
+    else
+        -- Nếu tắt BlackScreen thì xóa UI đi nếu có
+        pcall(function()
+            local playerGui = player:FindFirstChild("PlayerGui")
+            if playerGui and playerGui:FindFirstChild("TreoBlackScreenGui") then
+                playerGui.TreoBlackScreenGui:Destroy()
+            end
+        end)
+    end
+end
+
+-- 1. Auto Sell (quét từ 1 đến 100 nếu được bật trong config)
 local function autoSellAll()
+    if not getgenv().Config.AutoSellEnabled then return end
+
     local itemsToSell = {
         helmet = {},
         ability = {},
@@ -101,6 +167,9 @@ local function checkTargetPlayerLeave()
     end
 end
 
+-- Áp dụng cấu hình tối ưu lúc khởi động
+applyOptimizations()
+
 -- 5. Vòng lặp tổng hợp
 task.spawn(function()
     local sellTimer = 0
@@ -125,5 +194,3 @@ task.spawn(function()
         task.wait(1)
     end
 end)
-
-print("Đã khởi chạy script thành công với mục tiêu: " .. TARGET_USERNAME)
