@@ -1,5 +1,5 @@
 -- ============================================================================
--- UNIVERSAL AUTO DUNGEON (LOCAL PLAYER DEATH REPLAY V4.9)
+-- UNIVERSAL AUTO DUNGEON (FIXED NON-HARDCORE DEATH REPLAY V5.0)
 -- ============================================================================
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -297,7 +297,7 @@ task.spawn(function()
 end)
 
 -- ============================================================================
--- 3. LOGIC AUTO START & AUTO REPLAY
+-- 3. LOGIC AUTO START & AUTO REPLAY (ĐÃ SỬA CHỈ REPLAY KHI DÂN HARDCORE CHẾT)
 -- ============================================================================
 local function triggerAutoStart()
     local remotes = ReplicatedStorage:FindFirstChild("remotes")
@@ -335,12 +335,13 @@ local function triggerAutoReplay()
     end
 end
 
--- Bắt sự kiện CHỈ KHI BẢN THÂN (LOCAL PLAYER) CHẾT
+-- Bắt sự kiện khi nhân vật chết
 local function setupDeathListener(char)
     local hum = char:WaitForChild("Humanoid", 10)
     if hum then
         hum.Died:Connect(function()
-            if _G.AutoReplayState and _G.autoReplay then
+            -- CHỈ REPLAY KHI CHẾT TRONG MAP HARDCORE
+            if _G.AutoReplayState and _G.autoReplay and isHardcoreMap() then
                 task.wait(1.5)
                 triggerAutoReplay()
             end
@@ -359,12 +360,12 @@ task.spawn(function()
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             
-            -- Nếu bản thân chết thì gửi Replay ngay
-            if hum and hum.Health <= 0 then
+            -- Nếu trong map HARDCORE và nhân vật chết -> Replay ngay
+            if isHardcoreMap() and hum and hum.Health <= 0 then
                 triggerAutoReplay()
                 task.wait(3)
             elseif hum and hum.Health > 0 then
-                -- Nếu còn sống thì kiểm tra hết quái để Replay
+                -- Nếu còn sống (áp dụng cho cả Normal và Hardcore) -> Kiểm tra dọn xong hết quái thì Replay
                 local dungeon = Workspace:FindFirstChild("dungeon") or Workspace:FindFirstChild("Dungeon")
                 if dungeon then
                     local _, _, totalMonsters = getClosestMonster()
@@ -502,7 +503,7 @@ Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-title.Text = "Lọ meme DungeonQ V4.9"
+title.Text = "Lọ meme DungeonQ V5.0"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 10
 title.Font = Enum.Font.SourceSansBold
