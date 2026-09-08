@@ -1,3 +1,5 @@
+
+
 local TARGET_USERNAME = getgenv().Config.TargetUser
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +29,24 @@ local purchaseQueue = {
 
 -- Biến lưu trữ TextLabel để cập nhật thông tin lên màn hình đen
 local blackScreenTextLabel = nil
+
+-- Hàm rút gọn số tiền theo định dạng K, M, B, T
+local function formatNumber(value)
+    local num = tonumber(value)
+    if not num then return tostring(value) end
+    
+    if num >= 1e12 then
+        return string.format("%.2fT", num / 1e12)
+    elseif num >= 1e9 then
+        return string.format("%.2fB", num / 1e9)
+    elseif num >= 1e6 then
+        return string.format("%.2fM", num / 1e6)
+    elseif num >= 1e3 then
+        return string.format("%.2fK", num / 1e3)
+    else
+        return tostring(num)
+    end
+end
 
 -- 0. Tối ưu hóa FPS & Màn hình đen
 local function applyOptimizations()
@@ -90,7 +110,7 @@ local function applyOptimizations()
     end
 end
 
--- Cập nhật thông tin chi tiết lên màn hình đen (Username, Level, Gold, Tên Map Dungeon)
+-- Cập nhật thông tin chi tiết lên màn hình đen (Gold đã được quy đổi K, M, B, T)
 local function updateBlackScreenStats()
     if not getgenv().Config.BlackScreen or not blackScreenTextLabel then return end
 
@@ -103,7 +123,8 @@ local function updateBlackScreenStats()
         local goldVal = leaderstats and leaderstats:FindFirstChild("Gold")
 
         local currentLevel = levelVal and levelVal.Value or "N/A"
-        local currentGold = goldVal and goldVal.Value or "N/A"
+        local rawGold = goldVal and goldVal.Value or 0
+        local currentGold = formatNumber(rawGold) -- Rút gọn Gold
 
         -- Lấy tên map từ dungeonName trong Workspace
         local dungeonNameVal = Workspace:FindFirstChild("dungeonName")
@@ -113,7 +134,7 @@ local function updateBlackScreenStats()
             "Account: %s\nLevel: %s | Gold: %s\nMap: %s", 
             tostring(username), 
             tostring(currentLevel), 
-            tostring(currentGold), 
+            currentGold, 
             tostring(currentMap)
         )
     end)
@@ -239,7 +260,7 @@ task.spawn(function()
     while true do
         checkTargetPlayerLeave()
         task.spawn(triggerJoin)
-        updateBlackScreenStats() -- Cập nhật thông tin Username, Level, Gold, Map liên tục mỗi giây
+        updateBlackScreenStats() -- Cập nhật thông tin liên tục mỗi giây
 
         -- Kích hoạt nhảy chống AFK mỗi 30 giây
         afkTimer = afkTimer + 1
